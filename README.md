@@ -63,4 +63,4 @@ Just code as demo show.
 
 
 
-[![Stargazers over time](https://starchart.cc/Algebra-FUN/WeReadScan.svg)](https://starchart.cc/Algebra-FUN/WeReadScan)  
+[![Stargazers over time](https://github.com/lp380490944/weReadScan)  
