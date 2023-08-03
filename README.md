@@ -55,6 +55,12 @@ with WeRead(driver) as weread:
 
 Just code as demo show.
 
+#### 致谢
+[感谢原作者](https://github.com/Algebra-FUN/WeReadScan/tree/140d054d9e80939d6fe9df7fa787a2422ed78a69)
+
+
 ## Stargazers over time
+
+
 
 [![Stargazers over time](https://starchart.cc/Algebra-FUN/WeReadScan.svg)](https://starchart.cc/Algebra-FUN/WeReadScan)  
