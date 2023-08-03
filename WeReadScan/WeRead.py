@@ -9,11 +9,16 @@ from PIL import Image
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.remote.webdriver import WebDriver
+from selenium.webdriver import ActionChains
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import StaleElementReferenceException
+
 
 from .script import dir_check, os_start_file, clear_temp
 
 from time import sleep
 import os
+import logging
 
 
 class WeRead:
@@ -57,7 +62,7 @@ class WeRead:
     def load_js(self, name):
         if name in self._js_store:
             return self._js_store[name]
-        with open(f'{self.path}\\js\\{name}.js','r',encoding='utf-8') as f:
+        with open(f'{self.path}/js/{name}.js','r',encoding='utf-8') as f:
             js = f.read()
             self._js_store[name] = js
             return js
@@ -131,7 +136,7 @@ class WeRead:
         self.S('button.catalog').click()
         self.S('li.chapterItem:nth-child(2)').click()
 
-    def get_html(self, book_url):
+    def get_html_bak(self, book_url):
         # valid the url
         if 'https://weread.qq.com/web/reader/' not in book_url:
             raise Exception('WeRead.UrlError: Wrong url format.')
@@ -164,10 +169,8 @@ class WeRead:
 
             if 'ending' in readerFooterClass:
                 break
-
             # go to next page or chapter
             readerFooter.click()
-
         self.use_js('observer_disconnect')
         html = self.driver.execute_script("return rootElement.outerHTML")
         self.use_js('clean_root_element')
@@ -188,3 +191,63 @@ class WeRead:
     def scan2html(self, book_url, save_at='.', show_output=True):
         html = self.get_html(book_url)
         self.download_html(html, save_at=save_at, show_output=show_output)
+    def get_html(self, book_url):
+        logging.basicConfig(level=logging.INFO)
+        
+        # Validate the URL
+        if 'https://weread.qq.com/web/reader/' not in book_url:
+            raise Exception('WeRead.UrlError: Wrong url format.')
+
+        logging.info('Loading custom JavaScript...')
+        # Construct root HTML and observer 
+        self.driver.execute_cdp_cmd(
+            'Page.addScriptToEvaluateOnNewDocument', {'source': self.load_js('construct_root_and_observer')})
+
+        logging.info(f'Navigating to {book_url}...')
+        # Switch to target book URL
+        self.driver.get(book_url)
+
+        # Start observation
+        self.use_js('start_observation')
+
+        # Switch to target book's cover
+        self.switch_to_context()
+
+        # Get the name of the book
+        self.current_book_name = self.S('span.readerTopBar_title_link').text
+        logging.info(f'Scanning the book: "{self.current_book_name}"')
+
+        while True:
+            try:
+                # Re-locate the next page or chapter button each time
+                selector = '.readerFooter_button,.readerFooter_ending'
+                readerFooter = WebDriverWait(self.driver, self.patience).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+                )
+                readerFooterClass = readerFooter.get_attribute('class')
+
+                if 'ending' in readerFooterClass:
+                    logging.info('Ending class found in readerFooter. Exiting loop.')
+                    break
+
+                logging.info('Clicking next page or chapter button...')
+                sleep(1)
+                logging.info(readerFooterClass)
+                sleep(1)
+                # Go to next page or chapter
+                readerFooter.click()
+                # Add a wait to ensure the page has loaded
+                WebDriverWait(self.driver, 10).until(
+                    lambda driver: "ending" not in driver.find_element(By.CSS_SELECTOR, '.readerFooter').get_attribute('class')
+                )
+            except StaleElementReferenceException:
+                # If StaleElementReferenceException occurs, continue to the next iteration to re-locate the element
+                continue
+
+        self.use_js('observer_disconnect')
+        html = self.driver.execute_script("return rootElement.outerHTML")
+        self.use_js('clean_root_element')
+        logging.info('HTML retrieval complete.')
+
+        return html
+
